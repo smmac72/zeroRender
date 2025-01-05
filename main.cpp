@@ -4,6 +4,7 @@
 
 #include <d3d12.h>
 #include "SimpleMath.h"
+typedef DirectX::SimpleMath::Vector3 Vector3f; // simple math supports only XMFLOAT. probably interchangeable
 typedef DirectX::XMINT2 Vector2i; // simple math supports only XMFLOAT. probably interchangeable
 Vector2i operator+(Vector2i a, Vector2i b)
 {
@@ -100,18 +101,18 @@ int main(int argc, char** argv)
 	else
 		model = new Model("testmodel.obj");
 
-	DirectX::SimpleMath::Vector3 lightDir(0, 0, -1);
+	Vector3f lightDir(0, 0, -1);
 	for (int i = 0; i < model->nfaces(); i++)
 	{
 		std::vector<int> face = model->face(i);
 		Vector2i screenCoords[3];
-		DirectX::SimpleMath::Vector3 worldCoords[3];
+		Vector3f worldCoords[3];
 		for (int j = 0; j < 3; j++)
 		{
 			worldCoords[j] = model->vert(face[j]);
 			screenCoords[j] = Vector2i((int)((worldCoords[j].x + 1.0) * width / 2.0), (int)((worldCoords[j].y + 1.0) * height / 2.0));
 		}
-		DirectX::SimpleMath::Vector3 normal = (worldCoords[2] - worldCoords[0]).Cross((worldCoords[1] - worldCoords[0]));
+		Vector3f normal = (worldCoords[2] - worldCoords[0]).Cross((worldCoords[1] - worldCoords[0]));
 		normal.Normalize();
 		float lightIntensity = normal.Dot(lightDir);
 		if (lightIntensity > 0)
