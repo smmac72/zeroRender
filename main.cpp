@@ -1,12 +1,10 @@
 #include "tgaimage.h"
 #include "model.h"
+#include "dxvectors.h"
 #include <iostream>
 
-#include <d3d12.h>
-#include "SimpleMath.h"
-typedef DirectX::SimpleMath::Vector3 Vector3f;
-typedef DirectX::XMINT2 Vector2i; // simple math supports only XMFLOAT. probably interchangeable
-typedef DirectX::XMINT3 Vector3i;
+Model* model = NULL;
+int* zBuffer = NULL;
 Vector2i operator+(Vector2i a, Vector2i b)
 {
 	return Vector2i(a.x + b.x, a.y + b.y);
@@ -35,6 +33,10 @@ Vector3i FloatToInt(Vector3f fVector)
 {
 	return Vector3i((int)fVector.x, (int)fVector.y, (int)fVector.z);
 }
+Vector2i FloatToInt(Vector2f fVector)
+{
+	return Vector2i((int)fVector.x, (int)fVector.y);
+}
 Vector3f IntToFloat(Vector3i iVector)
 {
 	return Vector3f(iVector.x, iVector.y, iVector.z);
@@ -43,9 +45,6 @@ Vector3f operator+(Vector3i a, Vector3f b)
 {
 	return Vector3f(a.x + b.x, a.y + b.y, a.z + b.z);
 }
-
-Model* model = NULL;
-int* zBuffer = NULL;
 
 TGAColor white = TGAColor(255, 255, 255, 255);
 TGAColor red = TGAColor(255, 0, 0, 255);
@@ -96,30 +95,32 @@ void line(Vector2i start, Vector2i end, TGAImage& image, TGAColor &color)
 	}
 }
 
-void rasterize(Vector3f &A, Vector3f &B, TGAImage& image, TGAColor& color, int* zBuffer)
+void rasterize(Vector3f &A, Vector3f &B, Vector2f &uvA, Vector2f &uvB, TGAImage& image, float intensity, int* zBuffer)
 {
-	if (A.x > B.x)
-		std::swap(A, B);
+	if (A.x > B.x) { std::swap(A, B); std::swap(uvA, uvB); }
+		
 	for (int x = A.x; x <= B.x; x++)
 	{
 		float phi = A.x == B.x ? 1.0 : (x - A.x) / (float)(B.x - A.x);
 		Vector3i P = FloatToInt(A + (B - A) * phi);
+		Vector2i uvP = FloatToInt(uvA * (uvB - uvA) * phi);
 		int idx = P.x + P.y * width;
 		if (zBuffer[idx] < P.z)
 		{
 			zBuffer[idx] = P.z;
-			image.set(P.x, P.y, color);
+			TGAColor color = model->diffuse(uvP);
+			image.set(P.x, P.y, TGAColor(color.r * intensity, color.g * intensity, color.b * intensity, 255));
 		}
 	}
 }
 
-void triangle(Vector3i &t0, Vector3i &t1, Vector3i &t2, TGAImage& image, TGAColor color, int *zBuffer)
+void triangle(Vector3i &t0, Vector3i &t1, Vector3i &t2, Vector2f uv0, Vector2f uv1, Vector2f uv2, TGAImage& image, float intensity, int *zBuffer)
 {
 	if (t0.y == t1.y && t0.y == t2.y)
 		return;
-	if (t0.y > t1.y) std::swap(t0, t1);
-	if (t0.y > t2.y) std::swap(t0, t2);
-	if (t1.y > t2.y) std::swap(t1, t2);
+	if (t0.y > t1.y) { std::swap(t0, t1); std::swap(uv0, uv1); }
+	if (t0.y > t2.y) { std::swap(t0, t2); std::swap(uv0, uv2); }
+	if (t1.y > t2.y) { std::swap(t1, t2); std::swap(uv1, uv2); }
 
 	int totalHeight = t2.y - t0.y;
 	for (int yOffset = 0; yOffset < totalHeight; yOffset++)
@@ -131,8 +132,9 @@ void triangle(Vector3i &t0, Vector3i &t1, Vector3i &t2, TGAImage& image, TGAColo
 		float beta = (float)(yOffset - (isSecondHalf ? t1.y - t0.y : 0.0)) / segmentHeight;
 		Vector3f A = t0 + IntToFloat(t2 - t0) * alpha;
 		Vector3f B = isSecondHalf ? (t1 + IntToFloat(t2 - t1) * beta) : (t0 + IntToFloat(t1 - t0) * beta);
-		
-		rasterize(A, B, image, color, zBuffer);
+		Vector2f uvA = uv0 + (uv2 - uv0) * alpha;
+		Vector2f uvB = isSecondHalf ? (uv1 + (uv2 - uv1) * beta) : (uv0 + (uv1 - uv0) * beta);
+		rasterize(A, B, uvA, uvB, image, intensity, zBuffer);
 	}
 }
 
@@ -178,7 +180,12 @@ int main(int argc, char** argv)
 		normal.Normalize();
 		float lightIntensity = normal.Dot(lightDir);
 		if (lightIntensity > 0)
-			triangle(screenCoords[0], screenCoords[1], screenCoords[2], image, TGAColor(255 * lightIntensity, 255 * lightIntensity, 255 * lightIntensity, 255), zBuffer);
+		{
+			Vector2f uv[3];
+			for (int k = 0; k < 3; k++)
+				uv[k] = model->uv(i, k);
+			triangle(screenCoords[0], screenCoords[1], screenCoords[2], uv[0], uv[1], uv[2], image, lightIntensity, zBuffer);
+		}
 	}
 
 	image.flip_vertically();

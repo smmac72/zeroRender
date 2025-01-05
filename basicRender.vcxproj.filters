@@ -32,6 +32,9 @@
     <ClInclude Include="model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="dxvectors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -40,5 +43,10 @@
     <Object Include="testmodel.obj">
       <Filter>Resource Files</Filter>
     </Object>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\..\..\Downloads\testmodel_diffuse.tga">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
