@@ -40,7 +40,7 @@ Vector2i FloatToInt(Vector2f fVector)
 }
 Vector3f IntToFloat(Vector3i iVector)
 {
-	return Vector3f(iVector.x, iVector.y, iVector.z);
+	return Vector3f((float)iVector.x, (float)iVector.y, (float)iVector.z);
 }
 Vector3f operator+(Vector3i a, Vector3f b)
 {
@@ -48,9 +48,9 @@ Vector3f operator+(Vector3i a, Vector3f b)
 }
 TGAColor operator*(TGAColor color, float alpha)
 {
-	return TGAColor(std::clamp(color.r * alpha, 0.0f, 255.0f),
-		std::clamp(color.g * alpha, 0.0f, 255.0f),
-		std::clamp(color.b * alpha, 0.0f, 255.0f), color.a);
+	return TGAColor((unsigned char)std::clamp(color.r * alpha, 0.0f, 255.0f),
+		(unsigned char)std::clamp(color.g * alpha, 0.0f, 255.0f),
+		(unsigned char)std::clamp(color.b * alpha, 0.0f, 255.0f), color.a);
 }
 
 TGAColor white = TGAColor(255, 255, 255, 255);
@@ -106,9 +106,9 @@ void rasterize(Vector3f &A, Vector3f &B, Vector2f &uvA, Vector2f &uvB, float int
 {
 	if (A.x > B.x) { std::swap(A, B); std::swap(uvA, uvB); std::swap(intensityA, intensityB);}
 		
-	for (int x = A.x; x <= B.x; x++)
+	for (float x = A.x; x <= B.x; x++)
 	{
-		float phi = A.x == B.x ? 1.0 : (x - A.x) / (float)(B.x - A.x);
+		float phi = A.x == B.x ? 1.0f : (x - A.x) / (float)(B.x - A.x);
 		Vector3i P = FloatToInt(A + (B - A) * phi);
 		Vector2i uvP = FloatToInt(uvA + (uvB - uvA) * phi);
 		float intensityP = intensityA + (intensityB - intensityA) * phi;
