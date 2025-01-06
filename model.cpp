@@ -55,7 +55,7 @@ Model::Model(const char* filename) : verts_(), faces_()
             uv_.push_back(uv);
         }
     }
-    //std::cerr << "# v# " << verts_.size() << " f# " << faces_.size() << std::endl;
+    std::cerr << "# v# " << verts_.size() << " f# " << faces_.size() << " vt# " << norms_.size() << std::endl;
     load_texture(filename, "_diffuse.tga", diffusemap_);
 }
 
@@ -106,4 +106,12 @@ Vector2f Model::uv(int iface, int nvert)
 {
     int idx = faces_[iface][nvert].y;
     return Vector2f(uv_[idx].x * diffusemap_.get_width(), uv_[idx].y * diffusemap_.get_height());
+}
+
+Vector3f Model::norm(int iface, int nvert)
+{
+    int idx = faces_[iface][nvert].z;
+    Vector3f out = norms_[idx];
+    out.Normalize();
+    return out;
 }
