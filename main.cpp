@@ -192,7 +192,6 @@ void triangle(Vector3i &t0, Vector3i &t1, Vector3i &t2, Vector2f uv0, Vector2f u
 
 void dumpZBuffer(TGAImage &image, int *zBuffer)
 {
-	image.write_tga_file("output.tga");
 	TGAImage zbimage(width, height, TGAImage::GRAYSCALE);
 	for (int i = 0; i < width; i++)
 	{
@@ -207,14 +206,14 @@ int main(int argc, char** argv)
 	if (argc == 2)
 		model = new Model(argv[1]);
 	else
-		model = new Model("testmodel.obj");
+		model = new Model("smmac72.obj");
 
 	zBuffer = new int[width * height];
 	for (int i = 0; i < width * height; i++) {
 		zBuffer[i] = INT_MIN;
 	}
 
-	Vector3f eye(-4, 4, 2);
+	Vector3f eye(1, 0, -2);
 	Vector3f center(0, 0, 0);
 	Vector3f up(0, 1, 0);
 
@@ -222,7 +221,7 @@ int main(int argc, char** argv)
 	Matrix Projection = Matrix::Identity;
 	Matrix Viewport = viewport(width / 8, height / 8, width * 3/4, height * 3/4);
 	TGAImage image(width, height, TGAImage::RGB);
-	Vector3f lightDir = Vector3f(0, 0, 1);
+	Vector3f lightDir = Vector3f(0, 0, -1);
 	lightDir.Normalize();
 	for (int i = 0; i < model->nfaces(); i++)
 	{
@@ -246,6 +245,7 @@ int main(int argc, char** argv)
 	}
 
 	image.flip_vertically();
+	image.write_tga_file("output.tga");
 
 	dumpZBuffer(image, zBuffer);
 	delete model;

@@ -43,9 +43,15 @@
     <Object Include="testmodel.obj">
       <Filter>Resource Files</Filter>
     </Object>
+    <Object Include="smmac72.obj">
+      <Filter>Resource Files</Filter>
+    </Object>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\..\Downloads\testmodel_diffuse.tga">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="smmac72_diffuse.tga">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
