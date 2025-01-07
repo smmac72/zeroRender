@@ -4,6 +4,8 @@
 #include <iostream>
 #include <algorithm>
 
+typedef DirectX::SimpleMath::Matrix Matrix;
+
 Model* model = NULL;
 int* zBuffer = NULL;
 Vector2i operator+(Vector2i a, Vector2i b)
@@ -62,6 +64,45 @@ const int width = 800;
 const int height = 800;
 const int depth = 255;
 
+Matrix lookat(Vector3f eye, Vector3f center, Vector3f up)
+{
+	Vector3f z = (eye - center);
+	z.Normalize();
+	Vector3f x = up.Cross(z);
+	x.Normalize();
+	Vector3f y = z.Cross(x);
+	y.Normalize();
+	Matrix Minv(DirectX::XMFLOAT4(x.x, x.y, x.z, 0.0f),
+		DirectX::XMFLOAT4(y.x, y.y, y.z, 0.0f),
+		DirectX::XMFLOAT4(z.x, z.y, z.z, 0.0f),
+		DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
+	Matrix Tr(DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, -center.x),
+		DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, -center.y),
+		DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, -center.z),
+		DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
+	Minv *= Tr;
+	return Minv;
+}
+
+Matrix viewport(int x, int y, int w, int h)
+{
+	Matrix out(DirectX::XMFLOAT4(w / 2.0f, 0.0f, 0.0f, x + w / 2.0f),
+		DirectX::XMFLOAT4(0.0f, h / 2.0f, 0.0f, y + h / 2.0f),
+		DirectX::XMFLOAT4(0.0f, 0.0f, depth / 2.0f, depth / 2.0f),
+		DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
+	return out;
+}
+Matrix VecToMatrix(Vector3f vec)
+{
+	return Matrix(DirectX::SimpleMath::Vector4(vec.x, 0, 0, 0),
+		DirectX::SimpleMath::Vector4(vec.y, 0, 0, 0),
+		DirectX::SimpleMath::Vector4(vec.z, 0, 0, 0),
+		DirectX::SimpleMath::Vector4(1, 0, 0, 0));
+}
+Vector3f MatrixToVec(Matrix m)
+{
+	return Vector3f(m(0, 0) / m(3, 0), m(1, 0) / m(3, 0), m(2, 0) / m(3, 0));
+}
 void leftRightSort(Vector2i &start, Vector2i &end)
 {
 	if (start.x > end.x)
@@ -113,7 +154,7 @@ void rasterize(Vector3f &A, Vector3f &B, Vector2f &uvA, Vector2f &uvB, float int
 		Vector2i uvP = FloatToInt(uvA + (uvB - uvA) * phi);
 		float intensityP = intensityA + (intensityB - intensityA) * phi;
 		int idx = P.x + P.y * width;
-		//if (P.x >= width || P.y >= height || P.x < 0 || P.y < 0) continue;
+		if (P.x >= width || P.y >= height || P.x < 0 || P.y < 0) continue;
 		if (zBuffer[idx] < P.z)
 		{
 			zBuffer[idx] = P.z;
@@ -173,6 +214,13 @@ int main(int argc, char** argv)
 		zBuffer[i] = INT_MIN;
 	}
 
+	Vector3f eye(-4, 4, 2);
+	Vector3f center(0, 0, 0);
+	Vector3f up(0, 1, 0);
+
+	Matrix ModelView = lookat(eye, center, up);
+	Matrix Projection = Matrix::Identity;
+	Matrix Viewport = viewport(width / 8, height / 8, width * 3/4, height * 3/4);
 	TGAImage image(width, height, TGAImage::RGB);
 	Vector3f lightDir = Vector3f(0, 0, 1);
 	lightDir.Normalize();
@@ -184,9 +232,8 @@ int main(int argc, char** argv)
 		for (int j = 0; j < 3; j++)
 		{
 			worldCoords[j] = model->vert(face[j]);
-			screenCoords[j] = Vector3i((int)((worldCoords[j].x + 1.0) * width / 2.0),
-									   (int)((worldCoords[j].y + 1.0) * height / 2.0),
-									   (int)((worldCoords[j].z + 1.0) * depth / 2.0));
+			// i have no idea how to use simplemath
+			screenCoords[j] = FloatToInt(MatrixToVec(Viewport * Projection * ModelView * VecToMatrix(worldCoords[j])));
 		}
 		Vector2f uv[3];
 		float intensity[3];
