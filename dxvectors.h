@@ -4,6 +4,6 @@
 #include "SimpleMath.h"
 typedef DirectX::SimpleMath::Vector3 Vector3f;
 typedef DirectX::SimpleMath::Vector2 Vector2f;
-typedef DirectX::XMINT2 Vector2i; // simple math supports only XMFLOAT. probably interchangeable
+typedef DirectX::XMINT2 Vector2i; // simplemath supports only XMFLOAT. probably interchangeable
 typedef DirectX::XMINT3 Vector3i;
 #endif //__DXVECTORS_H__
