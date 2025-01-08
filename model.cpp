@@ -103,7 +103,7 @@ void Model::load_texture(std::string filename, const char* suffix, TGAImage& img
 
 TGAColor Model::diffuse(Vector2f uvf)
 {
-    Vector2i uv(uvf.x * diffusemap_.get_width(), uvf.y * diffusemap_.get_height());
+    Vector2i uv(uvf.x, uvf.y);
     return diffusemap_.get(uv.x, uv.y);
 }
 

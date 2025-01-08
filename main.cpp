@@ -193,6 +193,7 @@ void rasterize(Vector3f &A, Vector3f &B, Vector2f &uvA, Vector2f &uvB, float int
 		float phi = A.x == B.x ? 1.0f : (x - A.x) / (float)(B.x - A.x);
 		Vector3i P = FloatToInt(A + (B - A) * phi);
 		Vector2i uvP = FloatToInt(uvA + (uvB - uvA) * phi);
+		//std::cout << uvP.x << " " << uvP.y << std::endl;
 		float intensityP = intensityA + (intensityB - intensityA) * phi;
 		int idx = P.x + P.y * width;
 		if (P.x >= width || P.y >= height || P.x < 0 || P.y < 0) continue;
@@ -268,6 +269,7 @@ void triangle_new(DirectX::SimpleMath::Vector4 *pts, IShader& shader, TGAImage& 
 			if (!discard)
 			{
 				zbuffer.set(P.x, P.y, TGAColor(0, 0, frag_depth, 0));
+				//std::cout << "color || " << (int)color.r << " " << (int)color.g << " " << (int)color.b << " " << std::endl;
 				image.set(P.x, P.y, color);
 			}
 		}
@@ -286,34 +288,39 @@ void dumpZBuffer(TGAImage &image, int *zBuffer)
 }
 struct GouraudShader : public IShader
 {
-	//virtual ~IShader() {}
-	Vector3f varying_intensity; // written by vertex shader, read by fragment shader
+	Vector3f          varying_intensity; // written by vertex shader, read by fragment shader
+	Matrix varying_uv;
 
 	virtual DirectX::SimpleMath::Vector4 vertex(int iface, int nthvert)
 	{
-		DirectX::SimpleMath::Vector4 gl_Vertex = embed(model->vert(iface, nthvert)); // read the vertex from .obj file
-		
-		gl_Vertex = Right(Viewport * Projection * ModelView * VecToMatrix(gl_Vertex));     // transform it to screen coordinates
 		switch (nthvert)
 		{
 		case 0:
 			varying_intensity.x = std::max(0.f, model->normal(iface, nthvert).Dot(lightDir)); // get diffuse lighting intensity
+			varying_uv(0, 0) = model->uv(iface, nthvert).x;
+			varying_uv(1, 0) = model->uv(iface, nthvert).y;
 			break;
 		case 1:
 			varying_intensity.y = std::max(0.f, model->normal(iface, nthvert).Dot(lightDir)); // get diffuse lighting intensity
+			varying_uv(0, 1) = model->uv(iface, nthvert).x;
+			varying_uv(1, 1) = model->uv(iface, nthvert).y;
 			break;
 		case 2:
 			varying_intensity.z = std::max(0.f, model->normal(iface, nthvert).Dot(lightDir)); // get diffuse lighting intensity
+			varying_uv(0, 2) = model->uv(iface, nthvert).x;
+			varying_uv(1, 2) = model->uv(iface, nthvert).y;
 			break;
 
 		}
-		return gl_Vertex;
+		DirectX::SimpleMath::Vector4 gl_Vertex = embed(model->vert(iface, nthvert)); // read the vertex from .obj file
+		return Right(Viewport * Projection * ModelView * VecToMatrix(gl_Vertex)); // transform it to screen coordinates
 	}
 
-	virtual bool fragment(Vector3f bar, TGAColor& color)
+	virtual bool fragment(Vector3f bar, TGAColor &color)
 	{
 		float intensity = varying_intensity.Dot(bar);   // interpolate intensity for the current pixel
-		color = TGAColor(255, 255, 255, 255) * intensity; // well duh
+		Vector2f uv = Vector2f(varying_uv.Right().Dot(bar), varying_uv.Up().Dot(bar));
+		color = model->diffuse(uv) * intensity;      // well duh
 		return false;                              // no, we do not discard this pixel
 	}
 };
