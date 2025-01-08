@@ -35,6 +35,8 @@ Matrix Projection;
 Matrix Viewport;
 // light direction
 Vector3f lightDir;
+// phong coefs - ambient/diffuse/specular/shininess
+Vector4f PhongCoef;
 
 // gouraud shading shader
 struct GouraudShader : public IShader
@@ -81,12 +83,70 @@ struct GouraudShader : public IShader
 	}
 };
 
+// phong shading shader
+struct PhongShader : public IShader
+{
+	Vector3f intensity;
+	Vector3f camera; // camera point, no
+	Matrix uv; // still just three pairs of uvs
+
+	virtual DirectX::SimpleMath::Vector4 vertex(int iface, int nthvert) override
+	{
+		// get normals, light direction and look direction for each vertex
+		Vector3f normal = model->normal(iface, nthvert);
+		normal.Normalize();
+		Vector3f vertexPos = model->vert(iface, nthvert);
+
+		// calculate light intensity
+		intensity.x = std::max(0.f, normal.Dot(lightDir));
+		// Вектор для вычисления фрагмента (видимая компонента, направление на наблюдателя)
+		camera = (eye - vertexPos);
+		camera.Normalize();
+
+		switch (nthvert)
+		{
+		case 0:
+			uv(0, 0) = model->uv(iface, nthvert).x;
+			uv(1, 0) = model->uv(iface, nthvert).y;
+			break;
+		case 1:
+			uv(0, 1) = model->uv(iface, nthvert).x;
+			uv(1, 1) = model->uv(iface, nthvert).y;
+			break;
+		case 2:
+			uv(0, 2) = model->uv(iface, nthvert).x;
+			uv(1, 2) = model->uv(iface, nthvert).y;
+			break;
+		}
+
+		DirectX::SimpleMath::Vector4 gl_Vertex = embed(model->vert(iface, nthvert)); // read vertex
+		return GetFirstColumn(Viewport * Projection * ModelView * VecToMatrix(gl_Vertex)); // transform it to screen coordinates
+	}
+
+	virtual bool fragment(Vector3f bar, TGAColor& color)
+	{
+		float outIntensity = intensity.Dot(bar);
+		Vector2f outUV = Vector2f(uv.Right().Dot(bar), uv.Up().Dot(bar));
+
+		Vector3f normal = model->normal(outUV); // get normal to uv
+		normal.Normalize();
+		Vector3f lightReflection = lightDir * 2 * normal.Dot(lightDir) - lightDir;
+
+		float ambient = PhongCoef.x; // get ambient
+		float diffuse = PhongCoef.y * std::max(0.f, normal.Dot(lightDir)); // get diffuse
+		float specular = PhongCoef.z * std::pow(std::max(0.f, lightReflection.Dot(camera)), PhongCoef.w); // get specular
+		// final illumination by phong
+		color = model->diffuse(outUV) * (diffuse + ambient + specular);
+		return false;
+	}
+};
+
 // input arguments
 struct Arguments
 { 
-	std::string inputFile = "smmac72.obj";
+	std::string inputFile;
 	// if not stated, output is inputFileName.tga
-	std::string outputFile = "smmac72.tga";
+	std::string outputFile;
 	float light[3] = { 0, 0, 1 };
 	float center[3] = { 0, 0, 0 };
 	float camera[3] = { 0, 0, 1 };
@@ -94,9 +154,11 @@ struct Arguments
 	int width = 800;
 	int height = 800;
 	std::string raster = "barycentric";
-	std::string shader = "gouraud";
+	std::string shader = "phong";
+	// coefs for phong - ambient/diffuse/specular/shininess
+	Vector4f phongcoef = Vector4f(0.5f, 0.5f, 0.5f, 0.5f);
 	// if not stated, doesn't dump z-buffer
-	std::string dumpZBufferFile = "zBuffer.tga";
+	std::string dumpZBufferFile;
 };
 
 // check if string ends with a required suffix - for checking extensions
@@ -156,17 +218,18 @@ void displayHelp(char* programName)
 {
 	std::cout << "Usage: " << programName << " input_file [options]\n";
 	std::cout << "Options:\n";
-	std::cout << "  -o file             Output file\n";
-	std::cout << "  --light x y z       Light position | default: 0 0 1\n";
-	std::cout << "  --center x y z      Center position | default: 0 0 0\n";
-	std::cout << "  --camera x y z      Camera position | default: 0 0 1\n";
-	std::cout << "  --up x y z          Up vector direction | default: 0 1 0\n";
-	std::cout << "  --width x           Width of the output | default: 800\n";
-	std::cout << "  --height x          Height of the output | default: 800\n";
-	std::cout << "  --raster type       Rasterization type (linesweep/barycentric) | default: barycentric\n";
-	std::cout << "  --shader type       Shader type (gouraud/phong) - always gouraud for linesweep | default for barycentric: phong\n";
-	std::cout << "  --dumpZBuffer file  Dump Z-buffer file\n";
-	std::cout << "  --help              Display this help message\n";
+	std::cout << "  -o file              Output file\n";
+	std::cout << "  --light x y z        Light position | default: 0 0 1\n";
+	std::cout << "  --center x y z       Center position | default: 0 0 0\n";
+	std::cout << "  --camera x y z       Camera position | default: 0 0 1\n";
+	std::cout << "  --up x y z           Up vector direction | default: 0 1 0\n";
+	std::cout << "  --width x            Width of the output | default: 800\n";
+	std::cout << "  --height x           Height of the output | default: 800\n";
+	std::cout << "  --raster type        Rasterization type (linesweep/barycentric) | default: barycentric\n";
+	std::cout << "  --shader type        Shader type (gouraud/phong) - always gouraud for linesweep | default for barycentric: phong\n";
+	std::cout << "  --phongcoef x y z w  Set Phong lighting coefficients in order - Ambient, Diffuse, Specular, Shininess | default: 0.5 0.5 0.5 0.5\n";
+	std::cout << "  --dumpZBuffer file   Dump Z-buffer file\n";
+	std::cout << "  --help               Display this help message\n";
 }
 
 // parses argv
@@ -246,6 +309,13 @@ void parseArguments(int argc, char* argv[], Arguments& args)
 			args.shader = argv[++i];
 			validateShader(args.shader);
 		}
+		else if (arg == "--phongcoef" && i + 4 < argc)
+		{
+			args.phongcoef.x = parseFloat(argv[++i]);
+			args.phongcoef.y = parseFloat(argv[++i]);
+			args.phongcoef.z = parseFloat(argv[++i]);
+			args.phongcoef.w = parseFloat(argv[++i]);
+		}
 		else if (arg == "--dumpZBuffer" && i + 1 < argc)
 		{
 			args.dumpZBufferFile = argv[++i];
@@ -283,12 +353,12 @@ int main(int argc, char** argv)
 	/// /// /// /// /// /// /// /// ///
 	model = new Model(args.inputFile.c_str());
 	lightDir = Vector3f(args.light[0], args.light[1], args.light[2]);
-	lightDir.Normalize(); // we're setting the light direction, not exact coordinates
 	center = Vector3f(args.center[0], args.center[1], args.center[2]);
 	eye = Vector3f(args.camera[0], args.camera[1], args.camera[2]);
 	up = Vector3f(args.up[0], args.up[1], args.up[2]);
 	width = args.width;
 	height = args.height;
+	PhongCoef = args.phongcoef;
 
 	ModelView = lookat(eye, center, up);
 	Projection = Matrix::Identity;
@@ -299,12 +369,29 @@ int main(int argc, char** argv)
 
 	if (args.raster == "barycentric")
 	{
+		std::cerr << "[Render] Barycentric rasterization | ";
 		RasterBarycentric* render = new RasterBarycentric();
 		TGAImage zBuffer(width, height, TGAImage::GRAYSCALE);
 		
 		if (args.shader == "gouraud")
 		{
+			std::cerr << "Gouraud Shader\n";
 			GouraudShader shader;
+			lightDir.Normalize(); // we're setting the light direction, not exact coordinates
+			// apply shader for each vertex of each face
+			for (int i = 0; i < model->nfaces(); i++)
+			{
+				DirectX::SimpleMath::Vector4 screenCoords[3];
+				for (int j = 0; j < 3; j++)
+					screenCoords[j] = shader.vertex(i, j);
+				// draws each face
+				render->triangle(screenCoords, shader, image, zBuffer);
+			}
+		}
+		else if (args.shader == "phong")
+		{
+			std::cerr << "Phong Shader\n";
+			PhongShader shader;
 			// apply shader for each vertex of each face
 			for (int i = 0; i < model->nfaces(); i++)
 			{
@@ -320,10 +407,12 @@ int main(int argc, char** argv)
 		{
 			zBuffer.flip_vertically();
 			zBuffer.write_tga_file(args.dumpZBufferFile.c_str());
+			std::cerr << "[Z-Buffer] Dump saved at " << args.dumpZBufferFile << "\n";
 		}
 	}
 	else if (args.raster == "linesweep")
 	{
+		std::cerr << "[Render] Line Sweep rasterization\n";
 		RasterLinesweep* render = new RasterLinesweep(model, width, height);
 
 		// no idea why i'm still keeping it int
@@ -331,6 +420,8 @@ int main(int argc, char** argv)
 		int* zBuffer = new int[width * height];
 		for (int i = 0; i < width * height; i++)
 			zBuffer[i] = INT_MIN;
+
+		lightDir.Normalize(); // we're setting the light direction, not exact coordinates
 
 		for (int i = 0; i < model->nfaces(); i++)
 		{
@@ -367,6 +458,7 @@ int main(int argc, char** argv)
 			}
 			zbImage.flip_vertically();
 			zbImage.write_tga_file(args.dumpZBufferFile.c_str());
+			std::cerr << "[Z-Buffer] Dump saved at " << args.dumpZBufferFile << "\n";
 		}
 	}
 
@@ -374,6 +466,7 @@ int main(int argc, char** argv)
 	image.flip_vertically();
 	// writing our image to a tga file
 	image.write_tga_file(args.outputFile.c_str());
+	std::cerr << "[Render] Output saved at " << args.outputFile << "\n";
 	// some cleanup
 	delete model;
 	return 0;

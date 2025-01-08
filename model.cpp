@@ -8,7 +8,11 @@ Model::Model(const char* filename) : verts_(), faces_()
 {
     std::ifstream in;
     in.open(filename, std::ifstream::in);
-    if (in.fail()) return;
+    if (in.fail())
+    {
+        std::cerr << "[Model] Failed to load " << filename << "! Aborting\n";
+        return;
+    }
     std::string line;
     while (!in.eof()) {
         std::getline(in, line);
@@ -55,7 +59,8 @@ Model::Model(const char* filename) : verts_(), faces_()
             uv_.push_back(uv);
         }
     }
-    std::cerr << "# v# " << verts_.size() << " f# " << faces_.size() << " vt# " << norms_.size() << std::endl;
+    std::cerr << "[Model] Loaded " << filename << "\n";
+    std::cerr << "\tv# " << verts_.size() << " f# " << faces_.size() << " vt# " << uv_.size() << " vn# " << norms_.size() << std::endl;
     load_texture(filename, "_diffuse.tga", diffusemap_);
 }
 
@@ -96,7 +101,10 @@ void Model::load_texture(std::string filename, const char* suffix, TGAImage& img
     if (dot != std::string::npos)
     {
         texfile = texfile.substr(0, dot) + std::string(suffix);
-        std::cerr << "texture file " << texfile << " loading " << (img.read_tga_file(texfile.c_str()) ? "ok" : "failed") << std::endl;
+        if (img.read_tga_file(texfile.c_str()))
+            std::cerr << "[Texture] Loaded " << texfile << "\n";
+        else
+            std::cerr << "[Texture] Failed to load " << texfile << "\n";
         img.flip_vertically();
     }
 }
