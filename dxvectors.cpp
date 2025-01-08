@@ -34,15 +34,17 @@ TGAColor operator*(TGAColor color, float alpha)
 		(unsigned char)std::clamp(color.g * alpha, 0.0f, 255.0f),
 		(unsigned char)std::clamp(color.b * alpha, 0.0f, 255.0f), color.a);
 }
-DirectX::SimpleMath::Vector4 embed(Vector3f vec)
+
+Vector4f embed(Vector3f vec)
 {
 	return DirectX::SimpleMath::Vector4(vec.x, vec.y, vec.z, 1.0f);
 }
-DirectX::SimpleMath::Vector3 embed(Vector2f vec)
+Vector3f embed(Vector2f vec)
 {
-	return DirectX::SimpleMath::Vector3(vec.x, vec.y, 1.0f);
+	return Vector3f(vec.x, vec.y, 1.0f);
 }
-DirectX::SimpleMath::Vector4 GetFirstColumn(Matrix m) { return DirectX::SimpleMath::Vector4(m(0, 0), m(1, 0), m(2, 0), m(3, 0)); }
+
+Vector4f GetFirstColumn(Matrix m) { return Vector4f(m(0, 0), m(1, 0), m(2, 0), m(3, 0)); }
 
 Vector3i FloatToInt(Vector3f fVector)
 {
@@ -52,6 +54,7 @@ Vector2i FloatToInt(Vector2f fVector)
 {
 	return Vector2i((int)fVector.x, (int)fVector.y);
 }
+
 Vector3f IntToFloat(Vector3i iVector)
 {
 	return Vector3f((float)iVector.x, (float)iVector.y, (float)iVector.z);
@@ -60,6 +63,7 @@ Vector2f IntToFloat(Vector2i iVector)
 {
 	return Vector2f((float)iVector.x, (float)iVector.y);
 }
+
 Matrix VecToMatrix(Vector3f vec)
 {
 	return Matrix(DirectX::SimpleMath::Vector4(vec.x, 0, 0, 0),
@@ -67,7 +71,7 @@ Matrix VecToMatrix(Vector3f vec)
 		DirectX::SimpleMath::Vector4(vec.z, 0, 0, 0),
 		DirectX::SimpleMath::Vector4(1, 0, 0, 0));
 }
-Matrix VecToMatrix(DirectX::SimpleMath::Vector4 vec)
+Matrix VecToMatrix(Vector4f vec)
 {
 	return Matrix(DirectX::SimpleMath::Vector4(vec.x, 0, 0, 0),
 		DirectX::SimpleMath::Vector4(vec.y, 0, 0, 0),
@@ -78,7 +82,7 @@ Vector3f MatrixToVec(Matrix m)
 {
 	return Vector3f(m(0, 0) / m(3, 0), m(1, 0) / m(3, 0), m(2, 0) / m(3, 0));
 }
-Vector2f proj(DirectX::SimpleMath::Vector4 vec)
+Vector2f proj(Vector4f vec)
 {
 	return Vector2f(vec.x, vec.y);
 }
