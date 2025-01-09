@@ -22,7 +22,7 @@ Includes ability to set scene parameters (check **"Usage"** for more info)
 
   
 
-Automatically links **filename_diffuse.tga** as the diffuse texture. If not present, doesn't work, as no shading is possible. Probably will fix it someday.
+Automatically links **filename_diffuse.tga** as the diffuse texture. If not present, the result will be unlit.
 
 **Options:**
 
