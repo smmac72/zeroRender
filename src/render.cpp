@@ -15,8 +15,8 @@ Vector3f RasterBarycentric::barycentric(Vector2f A, Vector2f B, Vector2f C, Vect
 void RasterBarycentric::triangle(Vector4f *pts, IShader& shader, TGAImage& image, TGAImage& zbuffer)
 {
 	// finding box limits for our triangle
-	Vector2f bboxmin(INT_MAX, INT_MAX);
-	Vector2f bboxmax(INT_MIN, INT_MIN);
+	Vector2f bboxmin(FLT_MAX, FLT_MAX);
+	Vector2f bboxmax(FLT_MIN, FLT_MIN);
 	for (int i = 0; i < 3; i++)
 	{
 		bboxmin.x = std::min(bboxmin.x, pts[i].x);
@@ -28,12 +28,12 @@ void RasterBarycentric::triangle(Vector4f *pts, IShader& shader, TGAImage& image
 	// for every point in - we draw it
 	Vector2i P;
 	TGAColor color;
-	for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++)
+	for (P.x = (int)bboxmin.x; P.x <= (int)bboxmax.x; P.x++)
 	{
-		for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++)
+		for (P.y = (int)bboxmin.y; P.y <= (int)bboxmax.y; P.y++)
 		{
 			// math which works
-			Vector3f c = barycentric(proj(pts[0] / pts[0].w), proj(pts[1] / pts[1].w), proj(pts[2] / pts[2].w), Vector2f(P.x, P.y));
+			Vector3f c = barycentric(proj(pts[0] / pts[0].w), proj(pts[1] / pts[1].w), proj(pts[2] / pts[2].w), Vector2f((float)P.x, (float)P.y));
 			float z = pts[0].z * c.x + pts[1].z * c.y + pts[2].z * c.z;
 			float w = pts[0].w * c.x + pts[1].w * c.y + pts[2].w * c.z;
 			int frag_depth = std::max(0, std::min(255, int(z / w + 0.5)));

@@ -1,5 +1,3 @@
-#define NOMINMAX 
-
 #include "tgaimage.h"
 #include "model.h"
 #include "dxvectors.h"
@@ -99,7 +97,7 @@ struct PhongShader : public IShader
 
 		// calculate light intensity
 		intensity.x = std::max(0.f, normal.Dot(lightDir));
-		// Вектор для вычисления фрагмента (видимая компонента, направление на наблюдателя)
+		// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 		camera = (eye - vertexPos);
 		camera.Normalize();
 
@@ -352,6 +350,12 @@ int main(int argc, char** argv)
 	/// INITIALIZED BASIC VARIABLES ///
 	/// /// /// /// /// /// /// /// ///
 	model = new Model(args.inputFile.c_str());
+
+	if (!model)
+		return EXIT_FAILURE;
+	if (model->nfaces() == 0)
+		return EXIT_FAILURE;
+
 	lightDir = Vector3f(args.light[0], args.light[1], args.light[2]);
 	center = Vector3f(args.center[0], args.center[1], args.center[2]);
 	eye = Vector3f(args.camera[0], args.camera[1], args.camera[2]);
@@ -361,7 +365,7 @@ int main(int argc, char** argv)
 	PhongCoef = args.phongcoef;
 
 	ModelView = lookat(eye, center, up);
-	Projection = Matrix::Identity;
+	Projection = Matrix(Vector4f(1,0,0,0), Vector4f(0, 1, 0, 0), Vector4f(0, 0, 1, 0), Vector4f(0, 0, 0, 1));
 	Viewport = viewport(width / 8, height / 8, width * 3 / 4, height * 3 / 4);
 
 	// output image

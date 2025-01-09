@@ -1,4 +1,3 @@
-#define NOMINMAX
 #include "dxvectors.h"
 #include "model.h"
 
