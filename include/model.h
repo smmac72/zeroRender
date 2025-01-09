@@ -40,6 +40,8 @@ public:
 	Vector2f uv(int iface, int nthvert);
 	// get color at the specified uv point
 	TGAColor diffuse(Vector2f uv);
+	// get diffuse texture
+	TGAImage diffusemap();
 	// get specular at the specified uv point
 	float specular(Vector2f uv);
 	// get face by id

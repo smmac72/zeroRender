@@ -97,7 +97,6 @@ struct PhongShader : public IShader
 
 		// calculate light intensity
 		intensity.x = std::max(0.f, normal.Dot(lightDir));
-		// ������ ��� ���������� ��������� (������� ����������, ����������� �� �����������)
 		camera = (eye - vertexPos);
 		camera.Normalize();
 
@@ -377,6 +376,9 @@ int main(int argc, char** argv)
 		RasterBarycentric* render = new RasterBarycentric();
 		TGAImage zBuffer(width, height, TGAImage::GRAYSCALE);
 		
+		bool bHasTextures = model->diffusemap().get_width() != 0; // to allow unlit rendering
+		if (!bHasTextures)
+			std::cerr << "Unlit Mode | ";
 		if (args.shader == "gouraud")
 		{
 			std::cerr << "Gouraud Shader\n";
@@ -389,7 +391,7 @@ int main(int argc, char** argv)
 				for (int j = 0; j < 3; j++)
 					screenCoords[j] = shader.vertex(i, j);
 				// draws each face
-				render->triangle(screenCoords, shader, image, zBuffer);
+				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures);
 			}
 		}
 		else if (args.shader == "phong")
@@ -403,7 +405,7 @@ int main(int argc, char** argv)
 				for (int j = 0; j < 3; j++)
 					screenCoords[j] = shader.vertex(i, j);
 				// draws each face
-				render->triangle(screenCoords, shader, image, zBuffer);
+				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures);
 			}
 		}
 		// if dumpZBuffer file is states - dumps zBuffer duh
@@ -427,6 +429,9 @@ int main(int argc, char** argv)
 
 		lightDir.Normalize(); // we're setting the light direction, not exact coordinates
 
+		bool bHasTextures = model->diffusemap().get_width() != 0; // to allow unlit rendering
+		if (!bHasTextures)
+			std::cerr << "[Render] Rendering in unlit mode - no texture found\n";
 		for (int i = 0; i < model->nfaces(); i++)
 		{
 			std::vector<int> face = model->face(i);
@@ -448,7 +453,7 @@ int main(int argc, char** argv)
 				intensity[j] = std::clamp(model->normal(i, j).Dot(lightDir), 0.0f, 1.0f);
 			}
 			// draws each face
-			render->triangle(screenCoords[0], screenCoords[1], screenCoords[2], uv[0], uv[1], uv[2], image, intensity, zBuffer);
+			render->triangle(screenCoords[0], screenCoords[1], screenCoords[2], uv[0], uv[1], uv[2], image, intensity, zBuffer, bHasTextures);
 		}
 		// if dumpZBuffer file is states - dumps zBuffer duh
 		if (!args.dumpZBufferFile.empty())

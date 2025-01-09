@@ -115,6 +115,10 @@ TGAColor Model::diffuse(Vector2f uvf)
     return diffusemap_.get(uv.x, uv.y);
 }
 
+TGAImage Model::diffusemap()
+{
+    return diffusemap_;
+}
 Vector2f Model::uv(int iface, int nvert)
 {
     int idx = faces_[iface][nvert].y;
