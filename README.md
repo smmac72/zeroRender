@@ -54,7 +54,6 @@ Automatically links **filename_diffuse.tga** as the diffuse texture. If not pres
 
 Repo includes two test input files with corresponding diffuse textures - **model.obj** (stolen) and **smmac.dff** (peak 3d design)
 
-Due to the virus threat of a **model.obj**, only the latter one is in the downloadable build. lmao.
+Due to the virus threat of a **model.obj**, only the latter one is in the downloadable build. lmao
 ## Build
-
 Doesn't include the Makefile yet. You can enjoy the .sln file now, sorry mates
