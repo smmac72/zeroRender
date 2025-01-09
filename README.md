@@ -1,7 +1,7 @@
 
   
 
-# Zero Renderer
+# Zero Renderer ![cpp win](https://github.com/smmac72/zeroRender/actions/workflows/cpp.yml/badge.svg)
 
   
 
