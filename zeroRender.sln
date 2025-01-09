@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34622.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "basicRender", "basicRender.vcxproj", "{758451E7-A7B3-4557-9FFD-B5179663EA38}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zeroRender", "zeroRender.vcxproj", "{758451E7-A7B3-4557-9FFD-B5179663EA38}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
