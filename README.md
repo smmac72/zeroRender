@@ -5,7 +5,7 @@
 
   
 
-A very small util for rendering .obj files in .tga format.
+A very small util for rendering .obj files in .tga format. Uses DXMath and DX SimpleMath (mostly targeting the latter)
 
   
 
@@ -56,4 +56,4 @@ Repo includes two test input files with corresponding diffuse textures - **model
 
 Due to the virus threat of a **model.obj**, only the latter one is in the downloadable build. lmao
 ## Build
-Doesn't include the Makefile yet. You can enjoy the .sln file now, sorry mates
+Windows only, just use make
