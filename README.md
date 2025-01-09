@@ -5,7 +5,7 @@
 
   
 
-A very small util for rendering .obj files in .tga format. Uses DXMath and DX SimpleMath (mostly targeting the latter)
+A very small Windows util for rendering .obj files in .tga format. Uses DXMath and DX SimpleMath (mostly targeting the latter).
 
   
 
@@ -22,7 +22,7 @@ Includes ability to set scene parameters (check **"Usage"** for more info)
 
   
 
-Automatically links **filename_diffuse.tga** as the diffuse texture. If not present, doesn't work, as no shading is possible. Probably will fix it someday.
+Automatically links **filename_diffuse.tga** as the diffuse texture, so make sure to have it on you. Doesn't allow unlighted render, probably will make it later.
 
 **Options:**
 
