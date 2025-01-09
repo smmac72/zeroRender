@@ -16,7 +16,7 @@ Includes ability to set scene parameters (check **"Usage"** for more info)
   
 
 ## Usage
-[DOWNLOAD BUILD](https://github.com/smmac72/basicRender/releases/tag/1.0)
+[DOWNLOAD BUILD](https://github.com/smmac72/basicRender/releases/tag/v1)
 
 **./zr filename.obj**
 
