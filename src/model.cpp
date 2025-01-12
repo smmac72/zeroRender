@@ -113,6 +113,8 @@ void Model::load_texture(std::string filename, const char* suffix, TGAImage& img
 
 TGAColor Model::diffuse(Vector2f uvf)
 {
+    if (diffusemap_.get_width() == 0 || diffusemap_.get_height() == 0)
+        return TGAColor(255, 255, 255, 255);
     Vector2i uv((int)uvf.x, (int)uvf.y);
     return diffusemap_.get(uv.x, uv.y);
 }
@@ -120,6 +122,14 @@ TGAColor Model::diffuse(Vector2f uvf)
 TGAImage Model::diffusemap()
 {
     return diffusemap_;
+}
+TGAImage Model::normalmap()
+{
+    return normalmap_;
+}
+TGAImage Model::specularmap()
+{
+    return specularmap_;
 }
 Vector2f Model::uv(int iface, int nvert)
 {

@@ -20,9 +20,9 @@ public:
 	// must have basic values dropped in
 	RasterLinesweep(Model *model, int width, int height);
 	// draws triangle
-	void rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2f& uvB, float intensityA, float intensityB, TGAImage& image, int* zBuffer, bool bHasNoTexture);
+	void rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2f& uvB, float intensityA, float intensityB, TGAImage& image, int* zBuffer, bool bHasTextures);
 	// splits triangle in halves and sends them to be drawn
-	void triangle(Vector3i& t0, Vector3i& t1, Vector3i& t2, Vector2f uv0, Vector2f uv1, Vector2f uv2, TGAImage& image, float* intensity, int* zBuffer, bool bHasNoTexture);
+	void triangle(Vector3i& t0, Vector3i& t1, Vector3i& t2, Vector2f uv0, Vector2f uv1, Vector2f uv2, TGAImage& image, float* intensity, int* zBuffer, bool bHasTextures);
 private:
 	Model *model;
 	int width;

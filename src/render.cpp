@@ -1,4 +1,5 @@
 #include "render.h"
+#include <iostream>
 Vector3f RasterBarycentric::barycentric(Vector2f A, Vector2f B, Vector2f C, Vector2f P)
 {
 	// P = (1-u-v)A + uB + vC
@@ -42,14 +43,13 @@ void RasterBarycentric::triangle(Vector4f *pts, IShader& shader, TGAImage& image
 			if (c.x < 0 || c.y < 0 || c.z < 0 || zbuffer.get(P.x, P.y).b > frag_depth)
 				continue;
 			// check if we should discard. we don't in these shaders, but some shaders will discard vertices
+			if (!bHasTextures)
+				color = TGAColor(255, 255, 255, 255);
 			bool discard = shader.fragment(c, color);
 			if (!discard)
 			{
 				zbuffer.set(P.x, P.y, TGAColor(0, 0, frag_depth, 0)); // BE CAREFUL TGAIMAGE IS BGRA NOT RBGA GOD DAMN IT
-				if (!bHasTextures)
-					image.set(P.x, P.y, TGAColor((unsigned char)255, (unsigned char)255, (unsigned char)255, (unsigned char)255));
-				else
-					image.set(P.x, P.y, color);
+				image.set(P.x, P.y, color);
 			}
 		}
 	}
@@ -91,7 +91,7 @@ RasterLinesweep::RasterLinesweep(Model *model, int width, int height)
 	this->height = height;
 }
 
-void RasterLinesweep::rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2f& uvB, float intensityA, float intensityB, TGAImage& image, int* zBuffer, bool bHasNoTexture)
+void RasterLinesweep::rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2f& uvB, float intensityA, float intensityB, TGAImage& image, int* zBuffer, bool bHasTextures)
 {
 	// sort by ascending - we draw from A to B
 	if (A.x > B.x) { std::swap(A, B); std::swap(uvA, uvB); std::swap(intensityA, intensityB); }
@@ -111,13 +111,20 @@ void RasterLinesweep::rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2
 		if (zBuffer[idx] < P.z)
 		{
 			zBuffer[idx] = P.z;
-			TGAColor color = model->diffuse(IntToFloat(uvP));
-			image.set(P.x, P.y, color * intensityP);
+			if (!bHasTextures)
+			{
+				image.set(P.x, P.y, TGAColor((unsigned char)255, (unsigned char)255, (unsigned char)255, (unsigned char)255) * intensityP);
+			}
+			else
+			{
+				TGAColor color = model->diffuse(IntToFloat(uvP));
+				image.set(P.x, P.y, color * intensityP);
+			}
 		}
 	}
 }
 
-void RasterLinesweep::triangle(Vector3i& t0, Vector3i& t1, Vector3i& t2, Vector2f uv0, Vector2f uv1, Vector2f uv2, TGAImage& image, float* intensity, int* zBuffer, bool bHasNoTexture)
+void RasterLinesweep::triangle(Vector3i& t0, Vector3i& t1, Vector3i& t2, Vector2f uv0, Vector2f uv1, Vector2f uv2, TGAImage& image, float* intensity, int* zBuffer, bool bHasTextures)
 {
 	// don't draw degenerate triangles
 	if (t0.y == t1.y && t0.y == t2.y)
@@ -144,6 +151,6 @@ void RasterLinesweep::triangle(Vector3i& t0, Vector3i& t1, Vector3i& t2, Vector2
 		float intensityA = intensity[0] + (intensity[2] - intensity[0]) * alpha;
 		float intensityB = isSecondHalf ? (intensity[1] + (intensity[2] - intensity[1]) * beta) : (intensity[0] + (intensity[1] - intensity[0]) * beta);
 		// send a triangle for drawing
-		rasterize(A, B, uvA, uvB, intensityA, intensityB, image, zBuffer, bHasNoTexture);
+		rasterize(A, B, uvA, uvB, intensityA, intensityB, image, zBuffer, bHasTextures);
 	}
 }

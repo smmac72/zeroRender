@@ -42,6 +42,10 @@ public:
 	TGAColor diffuse(Vector2f uv);
 	// get diffuse texture
 	TGAImage diffusemap();
+	// get normal texture
+	TGAImage normalmap();
+	// get specular texture
+	TGAImage specularmap();
 	// get specular at the specified uv point
 	float specular(Vector2f uv);
 	// get face by id

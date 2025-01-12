@@ -34,7 +34,7 @@ Matrix Viewport;
 // light direction
 Vector3f lightDir;
 // phong coefs - ambient/diffuse/specular/shininess
-Vector4f PhongCoef;
+Vector3f PhongCoef;
 
 // gouraud shading shader
 struct GouraudShader : public IShader
@@ -84,25 +84,17 @@ struct GouraudShader : public IShader
 // phong shading shader
 struct PhongShader : public IShader
 {
-	Vector3f intensity;
-	Vector3f camera; // camera point, no
-	Matrix uv; // still just three pairs of uvs
+	Matrix uv;
+	Matrix Camera;   //  camera transformation for light calculations - Projection*ModelView
+	Matrix Camera_IT; // camera transformation inverted and transposed for normal calculations (no idea why tbh) - (Projection*ModelView) Invert + Transpose
+	bool bHasTextures;
 
-	virtual DirectX::SimpleMath::Vector4 vertex(int iface, int nthvert) override
+    virtual Vector4f vertex(int iface, int nthvert)
 	{
-		// get normals, light direction and look direction for each vertex
-		Vector3f normal = model->normal(iface, nthvert);
-		normal.Normalize();
-		Vector3f vertexPos = model->vert(iface, nthvert);
-
-		// calculate light intensity
-		intensity.x = std::max(0.f, normal.Dot(lightDir));
-		camera = (eye - vertexPos);
-		camera.Normalize();
-
 		switch (nthvert)
 		{
 		case 0:
+			// get vertex uv
 			uv(0, 0) = model->uv(iface, nthvert).x;
 			uv(1, 0) = model->uv(iface, nthvert).y;
 			break;
@@ -115,33 +107,47 @@ struct PhongShader : public IShader
 			uv(1, 2) = model->uv(iface, nthvert).y;
 			break;
 		}
-
 		DirectX::SimpleMath::Vector4 gl_Vertex = embed(model->vert(iface, nthvert)); // read vertex
-		return GetFirstColumn(Viewport * Projection * ModelView * VecToMatrix(gl_Vertex)); // transform it to screen coordinates
-	}
+        return GetFirstColumn(Viewport*Projection*ModelView*VecToMatrix(gl_Vertex)); // transform it to screen coordinates
+    }
 
-	virtual bool fragment(Vector3f bar, TGAColor& color)
+    virtual bool fragment(Vector3f bar, TGAColor &color)
 	{
-		float outIntensity = intensity.Dot(bar);
 		Vector2f outUV = Vector2f(uv.Right().Dot(bar), uv.Up().Dot(bar));
 
-		Vector3f normal = model->normal(outUV); // get normal to uv
-		normal.Normalize();
-		Vector3f lightReflection = lightDir * 2 * normal.Dot(lightDir) - lightDir;
+		// rotated normal relative to camera
+		Vector3f n = Vector3f(GetMatrixRow(Camera_IT, 0).Dot(embed(model->normal(outUV))),
+					GetMatrixRow(Camera_IT, 1).Dot(embed(model->normal(outUV))),
+					GetMatrixRow(Camera_IT, 2).Dot(embed(model->normal(outUV))));
+		n.Normalize();
 
-		float ambient = PhongCoef.x; // get ambient
-		float diffuse = PhongCoef.y * std::max(0.f, normal.Dot(lightDir)); // get diffuse
-		float specular = PhongCoef.z * std::pow(std::max(0.f, lightReflection.Dot(camera)), PhongCoef.w); // get specular
-		// final illumination by phong
-		color = model->diffuse(outUV) * (diffuse + ambient + specular);
-		return false;
-	}
+		// rotated lighting relative to camera 
+		Vector3f l = Vector3f(GetMatrixRow(Camera, 0).Dot(embed(lightDir)),
+					GetMatrixRow(Camera, 1).Dot(embed(lightDir)),
+					GetMatrixRow(Camera, 2).Dot(embed(lightDir)));
+		l.Normalize();
+
+		Vector3f r = (n*(n.Dot(l)*2.f) - l); // reflected light
+		r.Normalize();
+
+		float spec = pow(std::max(r.z, 0.0f), model->specular(outUV)); // if reflects light, reflection^specularvalue
+		float diff = std::max(0.f, n.Dot(l)); // calculates lighting
+
+		TGAColor c = model->diffuse(outUV);
+		color = c;
+		// ambient + color(diffuse + specular)
+		color.b = std::min<float>(PhongCoef.x + c.b*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
+		color.g = std::min<float>(PhongCoef.x + c.g*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
+		color.r = std::min<float>(PhongCoef.x + c.r*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
+
+        return false;
+    }
 };
-struct TestPhong : public IShader
+
+// just render the model
+struct NoneShader : public IShader
 {
-	Matrix uv;  // same as above
-	Matrix UniformM;   //  Projection*ModelView
-	Matrix UniformMIT; // (Projection*ModelView).invert_transpose()
+	Matrix uv;
 
     virtual Vector4f vertex(int iface, int nthvert)
 	{
@@ -168,26 +174,7 @@ struct TestPhong : public IShader
     virtual bool fragment(Vector3f bar, TGAColor &color)
 	{
         Vector2f outUV = Vector2f(uv.Right().Dot(bar), uv.Up().Dot(bar));
-		//Vector3f normal = model->normal(outUV);
-		Vector3f n = Vector3f(GetMatrixRow(UniformMIT, 0).Dot(embed(model->normal(outUV))),
-					  GetMatrixRow(UniformMIT, 1).Dot(embed(model->normal(outUV))),
-					  GetMatrixRow(UniformMIT, 2).Dot(embed(model->normal(outUV))));
-		n.Normalize();
-		Vector3f l = Vector3f(GetMatrixRow(UniformM, 0).Dot(embed(lightDir)),
-					  GetMatrixRow(UniformM, 1).Dot(embed(lightDir)),
-					  GetMatrixRow(UniformM, 2).Dot(embed(lightDir)));
-		l.Normalize();
-
-		Vector3f r = (n*(n.Dot(l)*2.f) - l);   // reflected light
-		r.Normalize();
-        float spec = pow(std::max(r.z, PhongCoef.w), model->specular(outUV));
-        float diff = std::max(0.f, n.Dot(l));
-        TGAColor c = model->diffuse(outUV);
-        color = c;
-		color.b = std::min<float>(PhongCoef.x + c.b*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
-		color.g = std::min<float>(PhongCoef.x + c.g*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
-		color.r = std::min<float>(PhongCoef.x + c.r*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
-
+        color = model->diffuse(outUV);
         return false;
     }
 };
@@ -207,7 +194,7 @@ struct Arguments
 	std::string raster = "barycentric";
 	std::string shader = "phong";
 	// coefs for phong - ambient/diffuse/specular/shininess
-	Vector4f phongcoef = Vector4f(0.5f, 0.5f, 0.5f, 0.5f);
+	Vector3f phongcoef = Vector3f(5.0f, 0.5f, 0.35f);
 	// if not stated, doesn't dump z-buffer
 	std::string dumpZBufferFile;
 };
@@ -235,9 +222,9 @@ void validateRaster(const std::string& raster)
 // checks for a valid shader type
 void validateShader(const std::string& shader)
 {
-	if (shader != "gouraud" && shader != "phong")
+	if (shader != "none" && shader != "gouraud" && shader != "phong")
 	{
-		throw std::invalid_argument("Invalid shader type. Must be 'gouraud' or 'phong'.");
+		throw std::invalid_argument("Invalid shader type. Must be 'none', 'gouraud' or 'phong'.");
 	}
 }
 // processes non-valid floats
@@ -277,8 +264,7 @@ void displayHelp(char* programName)
 	std::cout << "  --width x            Width of the output | default: 800\n";
 	std::cout << "  --height x           Height of the output | default: 800\n";
 	std::cout << "  --raster type        Rasterization type (linesweep/barycentric) | default: barycentric\n";
-	std::cout << "  --shader type        Shader type (gouraud/phong) - always gouraud for linesweep | default for barycentric: phong\n";
-	std::cout << "  --phongcoef x y z w  Set Phong lighting coefficients in order - Ambient, Diffuse, Specular, Shininess | default: 0.5 0.5 0.5 0.5\n";
+	std::cout << "  --phongcoef x y z w  Set Phong lighting coefficients in order - Ambient, Diffuse, Specular, Shininess | default: 5 0.5 0.35\n";
 	std::cout << "  --dumpZBuffer file   Dump Z-buffer file\n";
 	std::cout << "  --help               Display this help message\n";
 }
@@ -360,12 +346,11 @@ void parseArguments(int argc, char* argv[], Arguments& args)
 			args.shader = argv[++i];
 			validateShader(args.shader);
 		}
-		else if (arg == "--phongcoef" && i + 4 < argc)
+		else if (arg == "--phongcoef" && i + 3 < argc)
 		{
 			args.phongcoef.x = parseFloat(argv[++i]);
 			args.phongcoef.y = parseFloat(argv[++i]);
 			args.phongcoef.z = parseFloat(argv[++i]);
-			args.phongcoef.w = parseFloat(argv[++i]);
 		}
 		else if (arg == "--dumpZBuffer" && i + 1 < argc)
 		{
@@ -421,6 +406,27 @@ int main(int argc, char** argv)
 	Projection = Matrix(Vector4f(1,0,0,0), Vector4f(0, 1, 0, 0), Vector4f(0, 0, 1, 0), Vector4f(0, 0, 0, 1));
 	Viewport = viewport(width / 8, height / 8, width * 3 / 4, height * 3 / 4);
 
+	if (args.shader == "phong" && args.raster == "linesweep")
+	{
+		std::cerr << "[Input] Phong shading is not supported on a Linesweep rasterization algorithm. Switching to Gouraud shading\n";
+		args.shader = "gouraud";
+	}
+	
+	if (args.shader == "phong" && model->diffusemap().get_width() == 0)
+	{
+		std::cerr << "[Input] Phong shading is not supported without a diffuse texture. Switching to Gouraud shading\n";
+		args.shader = "gouraud";
+	}
+	if (args.shader == "phong" && model->normalmap().get_width() == 0)
+	{
+		std::cerr << "[Input] Phong shading is not supported without a normal texture. Switching to Gouraud shading\n";
+		args.shader = "gouraud";
+	}
+	if (args.shader == "phong" && model->specularmap().get_width() == 0)
+	{
+		std::cerr << "[Input] Phong shading is not supported without a specular texture. Switching to Gouraud shading\n";
+		args.shader = "gouraud";
+	}
 	// output image
 	TGAImage image(width, height, TGAImage::RGB);
 
@@ -433,38 +439,47 @@ int main(int argc, char** argv)
 		bool bHasTextures = model->diffusemap().get_width() != 0; // to allow unlit rendering
 		if (!bHasTextures)
 			std::cerr << "Unlit Mode | ";
-		if (args.shader == "gouraud")
+		if (args.shader == "phong")
+		{
+			std::cerr << "Phong Shader\n";
+			PhongShader shader;
+			// we can pass constants into the shader if needed
+			shader.Camera = Projection * ModelView;
+			shader.Camera_IT = (Projection * ModelView).Invert().Transpose();
+			shader.bHasTextures = bHasTextures;
+			for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
+			{
+				DirectX::SimpleMath::Vector4 screenCoords[3];
+				for (int j = 0; j < 3; j++)
+					screenCoords[j] = shader.vertex(i, j);
+				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
+			}
+		}
+		else if (args.shader == "gouraud")
 		{
 			std::cerr << "Gouraud Shader\n";
 			GouraudShader shader;
-			lightDir.Normalize(); // we're setting the light direction, not exact coordinates
-			// apply shader for each vertex of each face
-			for (int i = 0; i < model->nfaces(); i++)
+			for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
 			{
 				DirectX::SimpleMath::Vector4 screenCoords[3];
 				for (int j = 0; j < 3; j++)
 					screenCoords[j] = shader.vertex(i, j);
-				// draws each face
-				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures);
+				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
 			}
 		}
-		else if (args.shader == "phong")
+		else if (args.shader == "none")
 		{
-			std::cerr << "Phong Shader\n";
-			TestPhong shader;
-			shader.UniformM   =  Projection*ModelView;
-    		shader.UniformMIT = (Projection*ModelView).Invert().Transpose();
-			// apply shader for each vertex of each face
-			for (int i = 0; i < model->nfaces(); i++)
+			std::cerr << "No shader\n";
+			NoneShader shader;
+			for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
 			{
 				DirectX::SimpleMath::Vector4 screenCoords[3];
 				for (int j = 0; j < 3; j++)
 					screenCoords[j] = shader.vertex(i, j);
-				// draws each face
-				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures);
+				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
 			}
 		}
-		// if dumpZBuffer file is states - dumps zBuffer duh
+		// if dumpZBuffer file is stated - dumps zBuffer duh
 		if (!args.dumpZBufferFile.empty())
 		{
 			zBuffer.flip_vertically();
@@ -474,7 +489,7 @@ int main(int argc, char** argv)
 	}
 	else if (args.raster == "linesweep")
 	{
-		std::cerr << "[Render] Line Sweep rasterization\n";
+		std::cerr << "[Render] Line Sweep rasterization with" << (args.shader == "gouraud" ? " Gouraud shading\n" : "out shading\n");
 		RasterLinesweep* render = new RasterLinesweep(model, width, height);
 
 		// no idea why i'm still keeping it int
@@ -506,12 +521,12 @@ int main(int argc, char** argv)
 			for (int j = 0; j < 3; j++)
 			{
 				uv[j] = model->uv(i, j);
-				intensity[j] = std::clamp(model->normal(i, j).Dot(lightDir), 0.0f, 1.0f);
+				intensity[j] = args.shader == "gouraud" ? std::clamp(model->normal(i, j).Dot(lightDir), 0.0f, 1.0f) : 1.0f;
 			}
 			// draws each face
 			render->triangle(screenCoords[0], screenCoords[1], screenCoords[2], uv[0], uv[1], uv[2], image, intensity, zBuffer, bHasTextures);
 		}
-		// if dumpZBuffer file is states - dumps zBuffer duh
+		// if dumpZBuffer file is stated - dumps zBuffer duh
 		if (!args.dumpZBufferFile.empty())
 		{
 			TGAImage zbImage(width, height, TGAImage::GRAYSCALE);
