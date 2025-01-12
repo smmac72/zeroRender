@@ -33,6 +33,8 @@ Vector4f embed(Vector3f vec);
 Vector3f embed(Vector2f vec);
 // returns first matrix column. replaces Up() for Vector3f
 Vector4f GetFirstColumn(Matrix m);
+// returns matrix row
+Vector4f GetMatrixRow(Matrix m, int row);
 
 // defines Vector3f -> Vector3i
 Vector3i FloatToInt(Vector3f fVector);

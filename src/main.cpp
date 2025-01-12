@@ -137,6 +137,60 @@ struct PhongShader : public IShader
 		return false;
 	}
 };
+struct TestPhong : public IShader
+{
+	Matrix uv;  // same as above
+	Matrix UniformM;   //  Projection*ModelView
+	Matrix UniformMIT; // (Projection*ModelView).invert_transpose()
+
+    virtual Vector4f vertex(int iface, int nthvert)
+	{
+		switch (nthvert)
+		{
+		case 0:
+			// get vertex uv
+			uv(0, 0) = model->uv(iface, nthvert).x;
+			uv(1, 0) = model->uv(iface, nthvert).y;
+			break;
+		case 1:
+			uv(0, 1) = model->uv(iface, nthvert).x;
+			uv(1, 1) = model->uv(iface, nthvert).y;
+			break;
+		case 2:
+			uv(0, 2) = model->uv(iface, nthvert).x;
+			uv(1, 2) = model->uv(iface, nthvert).y;
+			break;
+		}
+		DirectX::SimpleMath::Vector4 gl_Vertex = embed(model->vert(iface, nthvert)); // read vertex
+        return GetFirstColumn(Viewport*Projection*ModelView*VecToMatrix(gl_Vertex)); // transform it to screen coordinates
+    }
+
+    virtual bool fragment(Vector3f bar, TGAColor &color)
+	{
+        Vector2f outUV = Vector2f(uv.Right().Dot(bar), uv.Up().Dot(bar));
+		//Vector3f normal = model->normal(outUV);
+		Vector3f n = Vector3f(GetMatrixRow(UniformMIT, 0).Dot(embed(model->normal(outUV))),
+					  GetMatrixRow(UniformMIT, 1).Dot(embed(model->normal(outUV))),
+					  GetMatrixRow(UniformMIT, 2).Dot(embed(model->normal(outUV))));
+		n.Normalize();
+		Vector3f l = Vector3f(GetMatrixRow(UniformM, 0).Dot(embed(lightDir)),
+					  GetMatrixRow(UniformM, 1).Dot(embed(lightDir)),
+					  GetMatrixRow(UniformM, 2).Dot(embed(lightDir)));
+		l.Normalize();
+
+		Vector3f r = (n*(n.Dot(l)*2.f) - l);   // reflected light
+		r.Normalize();
+        float spec = pow(std::max(r.z, PhongCoef.w), model->specular(outUV));
+        float diff = std::max(0.f, n.Dot(l));
+        TGAColor c = model->diffuse(outUV);
+        color = c;
+		color.b = std::min<float>(PhongCoef.x + c.b*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
+		color.g = std::min<float>(PhongCoef.x + c.g*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
+		color.r = std::min<float>(PhongCoef.x + c.r*(PhongCoef.y*diff + PhongCoef.z*spec), 255);
+
+        return false;
+    }
+};
 
 // input arguments
 struct Arguments
@@ -397,7 +451,9 @@ int main(int argc, char** argv)
 		else if (args.shader == "phong")
 		{
 			std::cerr << "Phong Shader\n";
-			PhongShader shader;
+			TestPhong shader;
+			shader.UniformM   =  Projection*ModelView;
+    		shader.UniformMIT = (Projection*ModelView).Invert().Transpose();
 			// apply shader for each vertex of each face
 			for (int i = 0; i < model->nfaces(); i++)
 			{

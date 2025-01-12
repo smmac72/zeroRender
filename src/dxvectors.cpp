@@ -34,7 +34,6 @@ TGAColor operator*(TGAColor color, float alpha)
 		(unsigned char)std::clamp(color.g * alpha, 0.0f, 255.0f),
 		(unsigned char)std::clamp(color.b * alpha, 0.0f, 255.0f), color.a);
 }
-
 Vector4f embed(Vector3f vec)
 {
 	return DirectX::SimpleMath::Vector4(vec.x, vec.y, vec.z, 1.0f);
@@ -45,6 +44,7 @@ Vector3f embed(Vector2f vec)
 }
 
 Vector4f GetFirstColumn(Matrix m) { return Vector4f(m(0, 0), m(1, 0), m(2, 0), m(3, 0)); }
+Vector4f GetMatrixRow(Matrix m, int row) { return Vector4f(m(row, 0), m(row, 1), m(row, 2), m(row, 3)); }
 
 Vector3i FloatToInt(Vector3f fVector)
 {
