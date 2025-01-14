@@ -8,6 +8,8 @@
 class Model
 {
 private:
+	// file name
+	std::string name;
 	// faces. structure: vertex/uv/normal
 	std::vector<std::vector<Vector3i>> faces_;
 	// vertices
@@ -24,6 +26,8 @@ private:
 public:
 	Model(const char* filename);
 	~Model();
+	// get filename
+	std::string getFileName();
 	// get amount of vertices
 	int nverts();
 	// get amount of faces

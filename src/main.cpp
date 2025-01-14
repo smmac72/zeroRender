@@ -182,7 +182,7 @@ struct NoneShader : public IShader
 // input arguments
 struct Arguments
 { 
-	std::string inputFile;
+	std::vector<std::string> inputFile;
 	// if not stated, output is inputFileName.tga
 	std::string outputFile;
 	float light[3] = { 0, 0, 1 };
@@ -251,10 +251,20 @@ int parseInt(const std::string& str)
 		throw std::invalid_argument("Invalid integer value: " + str);
 	}
 }
+// gets file name from a path
+std::string getFileName(const std::string& filePath)
+{
+    size_t pos = filePath.find_last_of("/\\");
+    if (pos != std::string::npos)
+	{
+        return filePath.substr(pos + 1);
+    }
+    return filePath; // Return the whole string if no slash is found
+}
 // peak of c engineering help window
 void displayHelp(char* programName)
 {
-	std::cout << "Usage: " << programName << " input_file [options]\n";
+	std::cout << "Usage: " << programName << " input_files [options]\n";
 	std::cout << "Options:\n";
 	std::cout << "  -o file              Output file\n";
 	std::cout << "  --light x y z        Light position | default: 0 0 1\n";
@@ -273,14 +283,12 @@ void displayHelp(char* programName)
 void parseArguments(int argc, char* argv[], Arguments& args)
 {
 	// don't allow ignoring the input name
-	if (argc < 1)
+	if (argc < 2)
 	{
-		std::cerr << "Usage: " << argv[0] << " input_file [options]\n";
-		std::cerr << "Use: " << argv[0] << " --help for more options\n";
+		std::cerr << "Usage: " << getFileName(argv[0]) << " input_file [options]\n";
+		std::cerr << "Use: " << getFileName(argv[0]) << " --help for more options\n";
 		exit(EXIT_FAILURE);
 	}
-	if (argc < 2)
-		return;
 
 	// --help is prioritized
 	if (std::string(argv[1]) == "--help")
@@ -289,17 +297,15 @@ void parseArguments(int argc, char* argv[], Arguments& args)
 		exit(EXIT_SUCCESS);
 	}
 
-	args.inputFile = argv[1];
-	if (!endsWith(args.inputFile, ".obj"))
-	{
-		throw std::invalid_argument("Input file must have a .obj extension.");
-	}
-
-	for (int i = 2; i < argc; i++)
+	for (int i = 1; i < argc; i++)
 	{
 		std::string arg = argv[i];
 
-		if (arg == "-o" && i + 1 < argc)
+		if (endsWith(arg, ".obj"))
+		{
+			args.inputFile.push_back(arg);
+		}
+		else if (arg == "-o" && i + 1 < argc)
 		{
 			args.outputFile = argv[++i];
 			validateAndSetFile(args.outputFile, ".tga");
@@ -363,15 +369,22 @@ void parseArguments(int argc, char* argv[], Arguments& args)
 			exit(EXIT_FAILURE);
 		}
 	}
-	// if output name is not stated,output is inputFileName.tga
+	// if no input files are stated
+	if (args.inputFile.size() == 0)
+	{
+		std::cerr << "No input files specified\n";
+		exit(EXIT_FAILURE);
+	}
+	// if output name is not stated,output is firstInputFileName.tga
 	if (args.outputFile.empty())
 	{
-		args.outputFile = args.inputFile.substr(0, args.inputFile.find_last_of('.')) + ".tga";
+		args.outputFile = args.inputFile[0].substr(0, args.inputFile[0].find_last_of('.')) + ".tga";
 	}
 }
 
 int main(int argc, char** argv)
 {
+	// input arguments
 	Arguments args;
 
 	try
@@ -387,12 +400,17 @@ int main(int argc, char** argv)
 	/// /// /// /// /// /// /// /// ///
 	/// INITIALIZED BASIC VARIABLES ///
 	/// /// /// /// /// /// /// /// ///
-	model = new Model(args.inputFile.c_str());
-
-	if (!model)
-		return EXIT_FAILURE;
-	if (model->nfaces() == 0)
-		return EXIT_FAILURE;
+	std::vector<Model*> models;
+	for (const auto& inputFile : args.inputFile)
+	{
+		Model* temp = new Model(inputFile.c_str());
+		if (!temp || temp->nfaces() == 0)
+		{
+			std::cerr << "Invalid model file: " << inputFile << "\n";
+			return EXIT_FAILURE;
+		}
+		models.push_back(temp);
+    }
 
 	lightDir = Vector3f(args.light[0], args.light[1], args.light[2]);
 	center = Vector3f(args.center[0], args.center[1], args.center[2]);
@@ -412,134 +430,120 @@ int main(int argc, char** argv)
 		args.shader = "gouraud";
 	}
 	
-	if (args.shader == "phong" && model->diffusemap().get_width() == 0)
-	{
-		std::cerr << "[Input] Phong shading is not supported without a diffuse texture. Switching to Gouraud shading\n";
-		args.shader = "gouraud";
-	}
-	if (args.shader == "phong" && model->normalmap().get_width() == 0)
-	{
-		std::cerr << "[Input] Phong shading is not supported without a normal texture. Switching to Gouraud shading\n";
-		args.shader = "gouraud";
-	}
-	if (args.shader == "phong" && model->specularmap().get_width() == 0)
-	{
-		std::cerr << "[Input] Phong shading is not supported without a specular texture. Switching to Gouraud shading\n";
-		args.shader = "gouraud";
-	}
 	// output image
 	TGAImage image(width, height, TGAImage::RGB);
-
-	if (args.raster == "barycentric")
+	TGAImage zBuffer(width, height, TGAImage::GRAYSCALE);
+	
+	for (const auto& tempmodel : models)
 	{
-		std::cerr << "[Render] Barycentric rasterization | ";
-		RasterBarycentric* render = new RasterBarycentric();
-		TGAImage zBuffer(width, height, TGAImage::GRAYSCALE);
-		
-		bool bHasTextures = model->diffusemap().get_width() != 0; // to allow unlit rendering
-		if (!bHasTextures)
-			std::cerr << "Unlit Mode | ";
-		if (args.shader == "phong")
+		model = tempmodel;
+		if (args.shader == "phong" && model->diffusemap().get_width() == 0)
 		{
-			std::cerr << "Phong Shader\n";
-			PhongShader shader;
-			// we can pass constants into the shader if needed
-			shader.Camera = Projection * ModelView;
-			shader.Camera_IT = (Projection * ModelView).Invert().Transpose();
-			shader.bHasTextures = bHasTextures;
-			for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
+			std::cerr << "[Input - " << model->getFileName() << "] Phong shading is not supported without a diffuse texture. Switching to Gouraud shading\n";
+			args.shader = "gouraud";
+		}
+		if (args.shader == "phong" && model->normalmap().get_width() == 0)
+		{
+			std::cerr << "[Input - " << model->getFileName() << "] Phong shading is not supported without a normal texture. Switching to Gouraud shading\n";
+			args.shader = "gouraud";
+		}
+		if (args.shader == "phong" && model->specularmap().get_width() == 0)
+		{
+			std::cerr << "[Input - " << model->getFileName() << "] Phong shading is not supported without a specular texture. Switching to Gouraud shading\n";
+			args.shader = "gouraud";
+		}
+		if (args.raster == "barycentric")
+		{
+			std::cerr << "[Render] Barycentric rasterization | ";
+			RasterBarycentric* render = new RasterBarycentric();
+			
+			bool bHasTextures = model->diffusemap().get_width() != 0; // to allow unlit rendering
+			if (!bHasTextures)
+				std::cerr << "Unlit Mode | ";
+			if (args.shader == "phong")
 			{
-				DirectX::SimpleMath::Vector4 screenCoords[3];
-				for (int j = 0; j < 3; j++)
-					screenCoords[j] = shader.vertex(i, j);
-				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
+				std::cerr << "Phong Shader\n";
+				PhongShader shader;
+				// we can pass constants into the shader if needed
+				shader.Camera = Projection * ModelView;
+				shader.Camera_IT = (Projection * ModelView).Invert().Transpose();
+				shader.bHasTextures = bHasTextures;
+				for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
+				{
+					DirectX::SimpleMath::Vector4 screenCoords[3];
+					for (int j = 0; j < 3; j++)
+						screenCoords[j] = shader.vertex(i, j);
+					render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
+				}
+			}
+			else if (args.shader == "gouraud")
+			{
+				std::cerr << "Gouraud Shader\n";
+				GouraudShader shader;
+				for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
+				{
+					DirectX::SimpleMath::Vector4 screenCoords[3];
+					for (int j = 0; j < 3; j++)
+						screenCoords[j] = shader.vertex(i, j);
+					render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
+				}
+			}
+			else if (args.shader == "none")
+			{
+				std::cerr << "No shader\n";
+				NoneShader shader;
+				for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
+				{
+					DirectX::SimpleMath::Vector4 screenCoords[3];
+					for (int j = 0; j < 3; j++)
+						screenCoords[j] = shader.vertex(i, j);
+					render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
+				}
 			}
 		}
-		else if (args.shader == "gouraud")
+		else if (args.raster == "linesweep")
 		{
-			std::cerr << "Gouraud Shader\n";
-			GouraudShader shader;
-			for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
+			std::cerr << "[Render] Line Sweep rasterization with" << (args.shader == "gouraud" ? " Gouraud shading\n" : "out shading\n");
+			RasterLinesweep* render = new RasterLinesweep(model, width, height);
+
+
+			lightDir.Normalize(); // we're setting the light direction, not exact coordinates
+
+			bool bHasTextures = model->diffusemap().get_width() != 0; // to allow unlit rendering
+			if (!bHasTextures)
+				std::cerr << "[Render] Rendering in unlit mode - no texture found\n";
+			for (int i = 0; i < model->nfaces(); i++)
 			{
-				DirectX::SimpleMath::Vector4 screenCoords[3];
+				std::vector<int> face = model->face(i);
+
+				// transforms vertices to screen coordinates
+				Vector3i screenCoords[3];
+				Vector3f worldCoords[3];
 				for (int j = 0; j < 3; j++)
-					screenCoords[j] = shader.vertex(i, j);
-				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
-			}
-		}
-		else if (args.shader == "none")
-		{
-			std::cerr << "No shader\n";
-			NoneShader shader;
-			for (int i = 0; i < model->nfaces(); i++) // apply shader for each vertex of each face
-			{
-				DirectX::SimpleMath::Vector4 screenCoords[3];
+				{
+					worldCoords[j] = model->vert(face[j]);
+					screenCoords[j] = FloatToInt(MatrixToVec(Viewport * Projection * ModelView * VecToMatrix(worldCoords[j])));
+				}
+				// applies gouraud shading (finds normals for each vertex)
+				Vector2f uv[3];
+				float intensity[3];
 				for (int j = 0; j < 3; j++)
-					screenCoords[j] = shader.vertex(i, j);
-				render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
+				{
+					uv[j] = model->uv(i, j);
+					intensity[j] = args.shader == "gouraud" ? std::clamp(model->normal(i, j).Dot(lightDir), 0.0f, 1.0f) : 1.0f;
+				}
+				// draws each face
+				render->triangle(screenCoords[0], screenCoords[1], screenCoords[2], uv[0], uv[1], uv[2], image, intensity, zBuffer, bHasTextures);
 			}
-		}
-		// if dumpZBuffer file is stated - dumps zBuffer duh
-		if (!args.dumpZBufferFile.empty())
-		{
-			zBuffer.flip_vertically();
-			zBuffer.write_tga_file(args.dumpZBufferFile.c_str());
-			std::cerr << "[Z-Buffer] Dump saved at " << args.dumpZBufferFile << "\n";
 		}
 	}
-	else if (args.raster == "linesweep")
+	
+	// if dumpZBuffer file is stated - dumps zBuffer duh
+	if (!args.dumpZBufferFile.empty())
 	{
-		std::cerr << "[Render] Line Sweep rasterization with" << (args.shader == "gouraud" ? " Gouraud shading\n" : "out shading\n");
-		RasterLinesweep* render = new RasterLinesweep(model, width, height);
-
-		// no idea why i'm still keeping it int
-		// todo change to TGAImage later
-		int* zBuffer = new int[width * height];
-		for (int i = 0; i < width * height; i++)
-			zBuffer[i] = INT_MIN;
-
-		lightDir.Normalize(); // we're setting the light direction, not exact coordinates
-
-		bool bHasTextures = model->diffusemap().get_width() != 0; // to allow unlit rendering
-		if (!bHasTextures)
-			std::cerr << "[Render] Rendering in unlit mode - no texture found\n";
-		for (int i = 0; i < model->nfaces(); i++)
-		{
-			std::vector<int> face = model->face(i);
-
-			// transforms vertices to screen coordinates
-			Vector3i screenCoords[3];
-			Vector3f worldCoords[3];
-			for (int j = 0; j < 3; j++)
-			{
-				worldCoords[j] = model->vert(face[j]);
-				screenCoords[j] = FloatToInt(MatrixToVec(Viewport * Projection * ModelView * VecToMatrix(worldCoords[j])));
-			}
-			// applies gouraud shading (finds normals for each vertex)
-			Vector2f uv[3];
-			float intensity[3];
-			for (int j = 0; j < 3; j++)
-			{
-				uv[j] = model->uv(i, j);
-				intensity[j] = args.shader == "gouraud" ? std::clamp(model->normal(i, j).Dot(lightDir), 0.0f, 1.0f) : 1.0f;
-			}
-			// draws each face
-			render->triangle(screenCoords[0], screenCoords[1], screenCoords[2], uv[0], uv[1], uv[2], image, intensity, zBuffer, bHasTextures);
-		}
-		// if dumpZBuffer file is stated - dumps zBuffer duh
-		if (!args.dumpZBufferFile.empty())
-		{
-			TGAImage zbImage(width, height, TGAImage::GRAYSCALE);
-
-			for (int i = 0; i < width; i++)
-			{
-				for (int j = 0; j < height; j++)
-					zbImage.set(i, j, TGAColor(zBuffer[i + j * width], 1));
-			}
-			zbImage.flip_vertically();
-			zbImage.write_tga_file(args.dumpZBufferFile.c_str());
-			std::cerr << "[Z-Buffer] Dump saved at " << args.dumpZBufferFile << "\n";
-		}
+		zBuffer.flip_vertically();
+		zBuffer.write_tga_file(args.dumpZBufferFile.c_str());
+		std::cerr << "[Z-Buffer] Dump saved at " << args.dumpZBufferFile << "\n";
 	}
 
 	// flip the image, so it starts in the bottom left corner

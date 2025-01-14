@@ -13,6 +13,7 @@ Model::Model(const char* filename) : verts_(), faces_()
         std::cerr << "[Model] Failed to load " << filename << "! Aborting\n";
         return;
     }
+    name = filename;
     std::string line;
     while (!in.eof()) {
         std::getline(in, line);
@@ -68,6 +69,11 @@ Model::Model(const char* filename) : verts_(), faces_()
 
 Model::~Model()
 {
+}
+
+std::string Model::getFileName()
+{
+    return name;
 }
 
 int Model::nverts()

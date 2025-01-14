@@ -37,10 +37,10 @@ void RasterBarycentric::triangle(Vector4f *pts, IShader& shader, TGAImage& image
 			Vector3f c = barycentric(proj(pts[0] / pts[0].w), proj(pts[1] / pts[1].w), proj(pts[2] / pts[2].w), Vector2f((float)P.x, (float)P.y));
 			float z = pts[0].z * c.x + pts[1].z * c.y + pts[2].z * c.z;
 			float w = pts[0].w * c.x + pts[1].w * c.y + pts[2].w * c.z;
-			int frag_depth = std::max(0, std::min(255, int(z / w + 0.5)));
+			float frag_depth = std::max(0.0f, std::min(255.0f, z / w));
 
 			// ignore if out of the screen bounds OR we already drew there (zbuffer check)
-			if (c.x < 0 || c.y < 0 || c.z < 0 || zbuffer.get(P.x, P.y).b > frag_depth)
+			if (c.x < 0 || c.y < 0 || c.z < 0 || zbuffer.get(P.x, P.y).b >= frag_depth)
 				continue;
 			// check if we should discard. we don't in these shaders, but some shaders will discard vertices
 			if (!bHasTextures)
@@ -91,7 +91,7 @@ RasterLinesweep::RasterLinesweep(Model *model, int width, int height)
 	this->height = height;
 }
 
-void RasterLinesweep::rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2f& uvB, float intensityA, float intensityB, TGAImage& image, int* zBuffer, bool bHasTextures)
+void RasterLinesweep::rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2f& uvB, float intensityA, float intensityB, TGAImage& image, TGAImage& zBuffer, bool bHasTextures)
 {
 	// sort by ascending - we draw from A to B
 	if (A.x > B.x) { std::swap(A, B); std::swap(uvA, uvB); std::swap(intensityA, intensityB); }
@@ -101,16 +101,15 @@ void RasterLinesweep::rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2
 		// interpolating coordinates between A.x and B.x
 		float phi = A.x == B.x ? 1.0f : (x - A.x) / (float)(B.x - A.x);
 		// all of out Vector3f are returning to integer screen coordinates
+		Vector3f floatP = A + (B - A) * phi; // but we're keeping this as a copy for the z-buffer accuracy
 		Vector3i P = FloatToInt(A + (B - A) * phi);
 		Vector2i uvP = FloatToInt(uvA + (uvB - uvA) * phi);
 		float intensityP = intensityA + (intensityB - intensityA) * phi;
 
-		// packing 2d array into 1d
-		int idx = P.x + P.y * width;
 		if (P.x >= width || P.y >= height || P.x < 0 || P.y < 0) continue;
-		if (zBuffer[idx] < P.z)
+		if (zBuffer.get(P.x, P.y).b <= floatP.z)
 		{
-			zBuffer[idx] = P.z;
+			zBuffer.set(P.x, P.y, TGAColor(0, 0, floatP.z, 0));
 			if (!bHasTextures)
 			{
 				image.set(P.x, P.y, TGAColor((unsigned char)255, (unsigned char)255, (unsigned char)255, (unsigned char)255) * intensityP);
@@ -124,7 +123,7 @@ void RasterLinesweep::rasterize(Vector3f& A, Vector3f& B, Vector2f& uvA, Vector2
 	}
 }
 
-void RasterLinesweep::triangle(Vector3i& t0, Vector3i& t1, Vector3i& t2, Vector2f uv0, Vector2f uv1, Vector2f uv2, TGAImage& image, float* intensity, int* zBuffer, bool bHasTextures)
+void RasterLinesweep::triangle(Vector3i& t0, Vector3i& t1, Vector3i& t2, Vector2f uv0, Vector2f uv1, Vector2f uv2, TGAImage& image, float* intensity, TGAImage& zBuffer, bool bHasTextures)
 {
 	// don't draw degenerate triangles
 	if (t0.y == t1.y && t0.y == t2.y)
