@@ -24,9 +24,16 @@ Vector3i operator+(Vector3i a, Vector3i b);
 // defines Vector3i - Vector3i
 Vector3i operator-(Vector3i a, Vector3i b);
 // defines Vector3i * float
-Vector3i operator*(Vector3i vec, float alpha); Vector3f operator+(Vector3i a, Vector3f b);
+Vector3i operator*(Vector3i vec, float alpha); 
+// defines Vector3i + Vector3f
+Vector3f operator+(Vector3i a, Vector3f b);
+// defines Matrix * Vector3
+Vector3f operator*(Matrix mat, Vector3f vec); 
+// defines Matrix * Vector4
+Vector4f operator*(Matrix mat, Vector4f vec); 
 // defines TGAColor * float
 TGAColor operator*(TGAColor color, float alpha);
+Vector4f embed1(Vector3f vec);
 // extends Vector3 to Vector4(Vec3.x, Vec3.y, Vec3.z, 1.0f)
 Vector4f embed(Vector3f vec);
 // extends Vector2 to Vector3(Vec2.x, Vec2.y, 1.0f)
@@ -35,7 +42,8 @@ Vector3f embed(Vector2f vec);
 Vector4f GetFirstColumn(Matrix m);
 // returns matrix row
 Vector4f GetMatrixRow(Matrix m, int row);
-
+// for some fucking reason this is needed (c) copilot comment autocompletion. tbh no idea why it worked, vec4 in barycentric requires w=1
+Vector4f MatrixToVec4(Matrix m);
 // defines Vector3f -> Vector3i
 Vector3i FloatToInt(Vector3f fVector);
 // defines Vector2f -> Vector2i

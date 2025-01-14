@@ -28,11 +28,28 @@ Vector3f operator+(Vector3i a, Vector3f b)
 {
 	return Vector3f(a.x + b.x, a.y + b.y, a.z + b.z);
 }
+Vector3f operator*(Matrix mat, Vector3f vec)
+{
+	return Vector3f(mat(0, 0) * vec.x + mat(0, 1) * vec.y + mat(0, 2) * vec.z + mat(0, 3),
+		mat(1, 0) * vec.x + mat(1, 1) * vec.y + mat(1, 2) * vec.z + mat(1, 3),
+		mat(2, 0) * vec.x + mat(2, 1) * vec.y + mat(2, 2) * vec.z + mat(2, 3));
+}
+Vector4f operator*(Matrix mat, Vector4f vec)
+{
+	return Vector4f(mat(0, 0) * vec.x + mat(0, 1) * vec.y + mat(0, 2) * vec.z + mat(0, 3) * vec.w,
+		mat(1, 0) * vec.x + mat(1, 1) * vec.y + mat(1, 2) * vec.z + mat(1, 3) * vec.w,
+		mat(2, 0) * vec.x + mat(2, 1) * vec.y + mat(2, 2) * vec.z + mat(2, 3) * vec.w,
+		mat(3, 0) * vec.x + mat(3, 1) * vec.y + mat(3, 2) * vec.z + mat(3, 3) * vec.w);
+}
 TGAColor operator*(TGAColor color, float alpha)
 {
 	return TGAColor((unsigned char)std::clamp(color.r * alpha, 0.0f, 255.0f),
 		(unsigned char)std::clamp(color.g * alpha, 0.0f, 255.0f),
 		(unsigned char)std::clamp(color.b * alpha, 0.0f, 255.0f), color.a);
+}
+Vector4f embed1(Vector3f vec)
+{
+	return DirectX::SimpleMath::Vector4(vec.x, vec.y, vec.z, 0.0f);
 }
 Vector4f embed(Vector3f vec)
 {
@@ -81,6 +98,10 @@ Matrix VecToMatrix(Vector4f vec)
 Vector3f MatrixToVec(Matrix m)
 {
 	return Vector3f(m(0, 0) / m(3, 0), m(1, 0) / m(3, 0), m(2, 0) / m(3, 0));
+}
+Vector4f MatrixToVec4(Matrix m)
+{
+	return Vector4f(m(0, 0) / m(3, 0), m(1, 0) / m(3, 0), m(2, 0) / m(3, 0), 1.0f);
 }
 Vector2f proj(Vector4f vec)
 {

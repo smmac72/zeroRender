@@ -25,7 +25,7 @@ Vector3f eye;
 Vector3f center;
 // up vector
 Vector3f up;
-// local object coordinates to world transformation
+// local object coordinates to world to view transformation
 Matrix ModelView;
 // world coordinates to camera transformation
 Matrix Projection;
@@ -43,7 +43,7 @@ struct GouraudShader : public IShader
 	Matrix uv; // can be 2x3 matrix (three pairs of uvs), but simplemath multiplication said no
 
 	// get intensity and uv for each vertex in vertex shader
-	virtual DirectX::SimpleMath::Vector4 vertex(int iface, int nthvert)
+	virtual Vector4f vertex(int iface, int nthvert)
 	{
 		// check for each of the three vertices
 		// probably could do better, but simplemath requires access by .xyz
@@ -67,8 +67,8 @@ struct GouraudShader : public IShader
 			break;
 
 		}
-		DirectX::SimpleMath::Vector4 gl_Vertex = embed(model->vert(iface, nthvert)); // read vertex
-		return GetFirstColumn(Viewport * Projection * ModelView * VecToMatrix(gl_Vertex)); // transform it to screen coordinates
+		Vector4f gl_Vertex = embed(model->vert(iface, nthvert)); // read vertex
+        return MatrixToVec4(Viewport*Projection*ModelView*VecToMatrix(gl_Vertex)); // transform it to screen coordinates
 	}
 
 	// interpolate intensity and uv in fragment shader
@@ -107,8 +107,8 @@ struct PhongShader : public IShader
 			uv(1, 2) = model->uv(iface, nthvert).y;
 			break;
 		}
-		DirectX::SimpleMath::Vector4 gl_Vertex = embed(model->vert(iface, nthvert)); // read vertex
-        return GetFirstColumn(Viewport*Projection*ModelView*VecToMatrix(gl_Vertex)); // transform it to screen coordinates
+		Vector4f gl_Vertex = embed(model->vert(iface, nthvert)); // read vertex
+        return MatrixToVec4(Viewport*Projection*ModelView*VecToMatrix(gl_Vertex)); // transform it to screen coordinates
     }
 
     virtual bool fragment(Vector3f bar, TGAColor &color)
@@ -168,7 +168,7 @@ struct NoneShader : public IShader
 			break;
 		}
 		DirectX::SimpleMath::Vector4 gl_Vertex = embed(model->vert(iface, nthvert)); // read vertex
-        return GetFirstColumn(Viewport*Projection*ModelView*VecToMatrix(gl_Vertex)); // transform it to screen coordinates
+        return MatrixToVec4(Viewport*Projection*ModelView*VecToMatrix(gl_Vertex)); // transform it to screen coordinates
     }
 
     virtual bool fragment(Vector3f bar, TGAColor &color)
@@ -187,7 +187,7 @@ struct Arguments
 	std::string outputFile;
 	float light[3] = { 0, 0, 1 };
 	float center[3] = { 0, 0, 0 };
-	float camera[3] = { 0, 0, 1 };
+	float camera[3] = { 0, 0, 3 };
 	float up[3] = { 0, 1, 0 };
 	int width = 800;
 	int height = 800;
@@ -421,7 +421,7 @@ int main(int argc, char** argv)
 	PhongCoef = args.phongcoef;
 
 	ModelView = lookat(eye, center, up);
-	Projection = Matrix(Vector4f(1,0,0,0), Vector4f(0, 1, 0, 0), Vector4f(0, 0, 1, 0), Vector4f(0, 0, 0, 1));
+	Projection = Matrix(Vector4f(1,0,0,0), Vector4f(0, 1, 0, 0), Vector4f(0, 0, 1, 0), Vector4f(0, 0, -1.0f/(center - eye).Length(), 1));
 	Viewport = viewport(width / 8, height / 8, width * 3 / 4, height * 3 / 4);
 
 	if (args.shader == "phong" && args.raster == "linesweep")
@@ -484,7 +484,10 @@ int main(int argc, char** argv)
 				{
 					DirectX::SimpleMath::Vector4 screenCoords[3];
 					for (int j = 0; j < 3; j++)
+					{
 						screenCoords[j] = shader.vertex(i, j);
+						//std::cerr << screenCoords[j].x << " " << screenCoords[j].y << " " << screenCoords[j].z << " " << screenCoords[j].w << "\n";
+					}
 					render->triangle(screenCoords, shader, image, zBuffer, bHasTextures); // draws each face
 				}
 			}

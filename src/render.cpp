@@ -38,10 +38,11 @@ void RasterBarycentric::triangle(Vector4f *pts, IShader& shader, TGAImage& image
 			float z = pts[0].z * c.x + pts[1].z * c.y + pts[2].z * c.z;
 			float w = pts[0].w * c.x + pts[1].w * c.y + pts[2].w * c.z;
 			float frag_depth = std::max(0.0f, std::min(255.0f, z / w));
-
 			// ignore if out of the screen bounds OR we already drew there (zbuffer check)
-			if (c.x < 0 || c.y < 0 || c.z < 0 || zbuffer.get(P.x, P.y).b >= frag_depth)
+			if (c.x < 0 || c.y < 0 || c.z < 0 || zbuffer.get(P.x, P.y).b > frag_depth)
+			{
 				continue;
+			}
 			// check if we should discard. we don't in these shaders, but some shaders will discard vertices
 			if (!bHasTextures)
 				color = TGAColor(255, 255, 255, 255);
@@ -63,16 +64,16 @@ Matrix lookat(Vector3f eye, Vector3f center, Vector3f up)
 	x.Normalize();
 	Vector3f y = z.Cross(x);
 	y.Normalize();
-	Matrix Minv(DirectX::XMFLOAT4(x.x, x.y, x.z, 0.0f),
+	Matrix View(DirectX::XMFLOAT4(x.x, x.y, x.z, 0.0f),
 		DirectX::XMFLOAT4(y.x, y.y, y.z, 0.0f),
 		DirectX::XMFLOAT4(z.x, z.y, z.z, 0.0f),
 		DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
-	Matrix Tr(DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, -center.x),
+	Matrix Model(DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, -center.x),
 		DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, -center.y),
 		DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, -center.z),
 		DirectX::XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f));
-	Minv *= Tr;
-	return Minv;
+	View *= Model;
+	return View;
 }
 
 Matrix viewport(int x, int y, int w, int h, int depth)
