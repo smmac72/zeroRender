@@ -26,13 +26,14 @@ Includes ability to set scene parameters (check **"Usage"** for more info)
 
   
 
-**./zr filename.obj**
+**./zr filename.obj** - you can include as many .obj files as you wish. At least one is required.
 
   
 
   
 
 Automatically links **filename_diffuse.tga** as the diffuse texture. If not present, the result will be unlit.
+
 Automatically links **filename_nm.tga** and **filename_spec.tga** as the normal/specular textures (for Phong shading only). If any of the two not present, shading will be switched to Gouraud.
 
 **Options:**
@@ -92,8 +93,8 @@ Automatically links **filename_nm.tga** and **filename_spec.tga** as the normal/
   
 
 ## Examples
-Repo includes two test input files
-- **model.obj** (stolen for education purposes) - includes diffuse, normal and specular textures
+Repo includes three test input files
+- **model.obj** with **model_eye.obj** (stolen for education purposes) - includes diffuse, normal and specular textures
 - **smmac.dff** (peak 3d design) - includes diffuse texture only
 
 .obj files are not included in the build due to Windows recognizing them as a virus. lmao.
